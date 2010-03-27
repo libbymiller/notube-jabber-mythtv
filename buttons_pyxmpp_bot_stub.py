@@ -176,6 +176,8 @@ class BasicHandler(object):
        body = self.send_command("key right")
     elif cmd == "left":
        body = self.send_command("key left")
+    elif cmd == "info":
+       body = self.send_command("key I")
     elif cmd == "loud":
        time.sleep(1)
        body = self.send_command("key [")
@@ -199,7 +201,7 @@ class BasicHandler(object):
        print "got command OK"
        body = self.send_command("key enter")
     elif cmd == "help":
-       body = "as IQ: nowp,plus,minu,righ,left; as chat: go [any telnet cmd],nowp,plus,minu,righ,left,p,ev,b,qr,plpz,ffwd,rewd,menu,loud,hush,save [bbc progs url],okay,help"
+       body = "as IQ: nowp,plus,minu,righ,left; as chat: go [any telnet cmd],nowp,plus,minu,righ,left,p,ev,b,qr,plpz,ffwd,rewd,menu,loud,hush,save [bbc progs url],okay,info,help"
     else:
        body = b
     msg=Message(to_jid=stanza.get_from(),from_jid=stanza.get_to(),stanza_type=stanza.get_type(),subject=sub,body=body)
