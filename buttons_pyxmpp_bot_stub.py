@@ -1,16 +1,16 @@
 # See http://pyxmpp.jajcus.net/trac/browser/trunk/examples/echobot.py for a more detailed example
 # requires pyxmpp (on Ubuntu: sudo apt-get install python-pyxmpp)
 import sys
-import urllib
+#import urllib
 import re
 import datetime
 import time
 import timeit
 import threading
-import os
+#import os
 import random
 import subprocess
-import MySQLdb
+#import MySQLdb
 import json
 import locale
 import codecs
