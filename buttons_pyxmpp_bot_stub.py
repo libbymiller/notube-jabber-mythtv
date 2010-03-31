@@ -1,7 +1,7 @@
 # See http://pyxmpp.jajcus.net/trac/browser/trunk/examples/echobot.py for a more detailed example
 # requires pyxmpp (on Ubuntu: sudo apt-get install python-pyxmpp)
 import sys
-#import urllib
+import urllib
 import re
 import datetime
 import time
@@ -78,7 +78,7 @@ class BasicHandler(object):
 
 
   def get_iq_get_handlers(self):
-    print "handlers requested for iq ",self
+    print "handlers requested for iq"
     return [("query","http://buttons.foaf.tv/",self.query)]
 
   def get_iq_set_handlers(self):
@@ -86,6 +86,7 @@ class BasicHandler(object):
 
   def query(self,stanza):
     print "IQ requested"
+    print "iq stanza",stanza.serialize(),"\n"
     b=stanza.get_query()
     print "GOT an IQ",str(b.get_content())
     ty=stanza.get_type()   
@@ -95,7 +96,7 @@ class BasicHandler(object):
        b = unicode(b)
     resp = stanza.make_result_response()
     cmd = content.lower()
-
+    body = ''
 # These commands are the ones that we want to use over IQ
     if cmd == "nowp":
        body = self.html_nowp()
@@ -124,6 +125,7 @@ class BasicHandler(object):
 
   def default(self,stanza):
     sub=stanza.get_subject()
+    print "chat stanza",stanza.serialize(),"\n"
     b=stanza.get_body()
     ty=stanza.get_type()
     jid=stanza.get_from()
@@ -274,6 +276,7 @@ class BasicHandler(object):
     print "bot ",self.client.jid
     fn = "q"+str(i)+".png"
     jid = self.client.jid
+    print "jid is ",repr(jid)
     jstring = jid.node+"@"+jid.domain
     print "Popping up a QR code for",jstring
 
