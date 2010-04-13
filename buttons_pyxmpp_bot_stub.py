@@ -1,3 +1,4 @@
+# run using python run_basic.py
 # See http://pyxmpp.jajcus.net/trac/browser/trunk/examples/echobot.py for a more detailed example
 # requires pyxmpp (on Ubuntu: sudo apt-get install python-pyxmpp)
 import sys
@@ -31,14 +32,7 @@ from pyxmpp.iq import Iq
 import telnetlib
 
 
-class GetIplayerThread ( threading.Thread):
-  def __init__ (self, pid):
-     self.pid = pid
-     threading.Thread.__init__ ( self )
-  def run ( self ):
-     print "getIplayer thread run called",self.pid
-
-class BasicHandler(object):
+class BasicBot(object):
   implements(IMessageHandlersProvider,IIqHandlersProvider,IPresenceHandlersProvider)
     
   def __init__(self, client):
@@ -49,15 +43,32 @@ class BasicHandler(object):
     self.defaultpingback=None
     self.defaultrecommender=None
     self.currentJID=None
+    self.myFullJID=None
     self.mypass = None
     try:
        self.mypass = os.environ["MYTHMYSQLPASS"]
     except(Exception):
        print "No mysql password found (MYTHMYSQLPASS, copy it from /etc/myth/config.xml please!)"
 
+######
+######
+
   def get_presence_handlers(self):
-     print "Presence heandler called"
+     print "Presence handlers called"
      return [(None, self.presence)]
+
+  def get_iq_get_handlers(self):
+    print "handlers requested for iq"
+    return [("iq","http://buttons.foaf.tv/",self.iq)]
+
+  def get_iq_set_handlers(self):
+    return [] #?
+
+  def get_message_handlers(self):
+    return [("normal", self.default)]
+
+######
+######
 
   def presence(self,stanza):
       print "Presence requested"
@@ -74,17 +85,15 @@ class BasicHandler(object):
           status=status
           )
       print "Presence is ",status
+# The full jid only appears in the presence requests.
+# These should always be requested before we get any messages
+      self.myFullJID= stanza.get_to()
       return p
 
+######
+######
 
-  def get_iq_get_handlers(self):
-    print "handlers requested for iq"
-    return [("query","http://buttons.foaf.tv/",self.query)]
-
-  def get_iq_set_handlers(self):
-    return [] #?
-
-  def query(self,stanza):
+  def iq(self,stanza):
     print "IQ requested"
     print "iq stanza",stanza.serialize(),"\n"
     b=stanza.get_query()
@@ -98,17 +107,10 @@ class BasicHandler(object):
     cmd = content.lower()
     body = ''
 # These commands are the ones that we want to use over IQ
-    if cmd == "nowp":
-       body = self.html_nowp()
-    elif cmd == "plus":
-       body = self.send_command("key up")
-    elif cmd == "minu":
-       body = self.send_command("key down")
-    elif cmd == "righ":
-       body = self.send_command("key right")
-    elif cmd == "left":
-       body = self.send_command("key left")
-
+    param=None
+    if(len(arr)>1 and arr[1]):
+       param = arr[1]
+    body = self.process_command(cmd,param)
     source = "<nowp-result xmlns='http://buttons.foaf.tv/'>" + body + "</nowp-result>"        
     soup = BeautifulSoup(source)
     doc = libxml2.parseDoc(str(soup.contents[0]))
@@ -116,11 +118,9 @@ class BasicHandler(object):
     print "IQ response is ",resp
     return resp
 
-    
-  def get_message_handlers(self):
-    return [("normal", self.default)]
 
-
+######
+######
 # These are responses to chat messages
 
   def default(self,stanza):
@@ -142,96 +142,137 @@ class BasicHandler(object):
     cmd = arr[0]
     cmd = cmd.lower() 
     print "Chat command is ",cmd
+    param=None
+    if(len(arr)>1 and arr[1]):
+       param = arr[1]
 
-# Various chat based commands
+# how do we get the full jid?
+# doesn't work    self.myFullJID=msg1.get_from()
+# ask the command
+    body = self.process_command(cmd, param)
+    msg=Message(to_jid=stanza.get_from(),from_jid=stanza.get_to(),stanza_type=stanza.get_type(),subject=sub,body=body)
+    return msg
 
-    if cmd == "go":
-       arr.pop(0)
-       bbb = " ".join(arr)
-       print "body ",bbb
-       body = self.send_command(bbb)
-    elif cmd == "p":
-       body = self.do_now_playing(False)
-    elif cmd == "ev":
-       body = self.do_now_playing(True)
-    elif cmd == "b":
-       body = self.do_bookmark()
+#######
+# commands
+#######
+
+  def process_command(self, cmd,param):
+    if cmd == "nowp":
+       body = self.html_nowp()
+    elif cmd == "plus":
+       body = self.plus()
+    elif cmd == "minu":
+       body = self.minu()
+    elif cmd == "righ":
+       body = self.righ()
+    elif cmd == "left":
+       body = self.left()
     elif cmd == "like":
        body = self.do_bookmark()
     elif cmd == "qr":
        body = self.do_qr()
     elif cmd == "plpz":
-       body = self.send_command("key P")
+       body = self.plpz()
     elif cmd == "ffwd":
-       body = self.send_command("key >")
+       body = self.ffwd()
     elif cmd == "rewd":
-       body = self.send_command("key <")
+       body = self.rewd()
     elif cmd == "menu":
-       m = self.send_command("key M")
-       time.sleep(1)
-       body = self.send_command("key enter")
-    elif cmd == "plus":
-       body = self.send_command("key up")
-    elif cmd == "minu":
-       body = self.send_command("key down")
-    elif cmd == "righ":
-       body = self.send_command("key right")
-    elif cmd == "left":
-       body = self.send_command("key left")
+       body = self.menu()
     elif cmd == "info":
-       body = self.send_command("key I")
+       body = self.info()
     elif cmd == "loud":
-       time.sleep(1)
-       body = self.send_command("key [")
+       body = self.loud()
     elif cmd == "hush":
-       time.sleep(1)
-       body = self.send_command("key }")
-    elif cmd == "nowp":
-       body = self.html_nowp()
+       body = self.hush()
     elif cmd == "save":
-       print "arr len ",len(arr)
-       if (len(arr)>1):
-          pid = arr[1]
-          if (re.match("^http",pid)):
-             pid =pid.replace("http://www.bbc.co.uk/programmes/","")
-          print "saving using get_iplayer:",pid
-          GetIplayerThread(pid).start()
-          body = "Trying to download "+ arr[1]
-       else:
-          body = "No pid found"
+       body = self.save(param)
     elif cmd == "okay":
-       print "got command OK"
-       body = self.send_command("key enter")
+       body = self.okay()
     elif cmd == "help":
-       body = "as IQ: nowp,plus,minu,righ,left; as chat: go [any telnet cmd],nowp,plus,minu,righ,left,p,ev,b,qr,plpz,ffwd,rewd,menu,loud,hush,save [bbc progs url],okay,info,help"
+       body = self.help()
     else:
-       body = b
-    msg=Message(to_jid=stanza.get_from(),from_jid=stanza.get_to(),stanza_type=stanza.get_type(),subject=sub,body=body)
-    return msg
+       body = cmd
+    print "returning body",body
+    return body
 
 #####
-# Talking to the Mythtv telnet
+# These commands need to be made specific to the platform
+# These are just stubs
+#####
+
+  def plus(self):
+    return "plus called"
+
+  def minu(self):
+    return "minu called"
+
+  def righ(self):
+    return "righ called"
+
+  def left(self):
+    return "left called"
+
+  def plpz(self):
+    return "plpz called"
+
+  def ffwd(self):
+    return "ffwd called"
+
+  def rewd(self):
+    return "rewd called"
+
+  def menu(self):
+    return "menu called"
+
+  def info(self):
+    return "info called"
+
+  def loud(self):
+    return "loud called"
+
+  def hush(self):
+    return "hush called"
+
+  def okay(self):
+    return "okay called"
+
+
+#####
+# Help message
+#####
+
+  def help(self):
+     body = "nowp,plus,minu,righ,left,like,qr,plpz,ffwd,rewd,menu,loud,hush,save [bbc progs url],okay,info,help"
+     return body
+
+#####
+# Save using the iplayer thread
+#####
+
+  def save(self,pid):
+     body = None
+     if (re.match("^http",pid)):
+        pid =pid.replace("http://www.bbc.co.uk/programmes/","")
+     pid_match = re.match('.*?\/?([b-df-hj-np-tv-z][0-9b-df-hj-np-tv-z]{7,15}).*?',pid)
+     if pid_match:
+        print "saving using get_iplayer:",pid
+        GetIplayerThread(pid).start()
+        body = "Trying to download "+ pid
+     else:
+        body = "No pid found"
+     return body
+
+
 ####
-
-# stub only
-
-  def send_command(self,cmd):
-    if (cmd == "query location"):
-      
-      return {'title': "Clifford's Puppy Days", 'pid': 'b008vhxr', 'datetime': '2010-03-25T09:15:00', 'secs': 85563, 'channum': '1002', 'channel': 'bbctwo'}
-    else:
-      return "Command sent:",cmd
-
-
+# Get what is playing now - faked!
 ####
-# Get what is playing now
-####
-
-# stub only
 
   def do_now_playing(self,send_event):
-    output = self.send_command("query location")
-    results = output
+
+    results = {'title': "BBC News At Six", 'pid': 'b00s1kpc', 'datetime': '2010-04-13T18:00:00', 'secs': 600, 'channum': '1001', 'channel': 'bbcone'}
+
     if (send_event):
        print "Should send watching event here"           
        self.send_event(results, "Watching")
@@ -240,7 +281,7 @@ class BasicHandler(object):
     return results
 
 ####
-# send an event to the beancounter specificed by this user
+# send an event to the beancounter specified by this user
 ####
 
   def send_event(self, event, e_type):
@@ -254,7 +295,6 @@ class BasicHandler(object):
 # Send a bookmark to delicious - requires username and password
 ####
 
-#stub
 
   def do_bookmark(self):
     data2 = self.do_now_playing(False)
@@ -269,16 +309,13 @@ class BasicHandler(object):
 # pop up a qr code on request
 ####
 
-#stub
-
   def do_qr(self):
-    i = random.randint(1000, 9999)
-    print "bot ",self.client.jid
-    fn = "q"+str(i)+".png"
-    jid = self.client.jid
-    print "jid is ",repr(jid)
-    jstring = jid.node+"@"+jid.domain
-    print "Popping up a QR code for",jstring
+    pin = random.randint(1000, 9999)
+    fn = "q"+str(pin)+".png"
+    jstring = self.myFullJID
+    print "bot ",jstring
+#need to add some stuff so that we can accept things with this pin
+    return "Popping up a QR code for",jstring,"plus pin is ",pin
 
 ####
 # now playing as html
@@ -294,7 +331,7 @@ class BasicHandler(object):
       stt = z["datetime"]
       channum = z["channum"]
       extras = ""
-# get the pid @@@
+# get the pid if it's a BBC programme
       if (re.match("bbc", channel)):
          u = "http://dev.notu.be/2009/10/bbc/info?channel="+channel
          pid = urllib.urlopen(u).read()
@@ -328,35 +365,15 @@ class BasicHandler(object):
       return "<div><meta name=\"viewport\" content=\"width=320\"/><p>Nothing playing at the moment - this sometimes means it's an ad break, or else MythTV frontend has crashed</p></div>"
 
 
+######
+# Special thread for getiplayer
+######
 
-class Client(JabberClient):
-  def __init__(self, jid, password):
-    jid=JID(jid.node, jid.domain, "Basicbot")
-    tls = streamtls.TLSSettings(require=True, verify_peer=False)
-    auth = ['sasl:PLAIN']
-    JabberClient.__init__(self, jid, password, tls_settings=tls,auth_methods=auth)
-    self.interface_providers = [BasicHandler(self)]
-
-
-locale.setlocale(locale.LC_CTYPE, "")
-encoding = locale.getlocale()[1]
-if not encoding:
-    encoding = "us-ascii"
-sys.stdout = codecs.getwriter(encoding)(sys.stdout, errors = "replace")
-sys.stderr = codecs.getwriter(encoding)(sys.stderr, errors = "replace")
-
-
-if len(sys.argv) < 3:
-    print "Usage: python basicbot_pyxmpp.py jid password"
-    sys.exit(1)
-jid = sys.argv[1]
-password = sys.argv[2]
-c=Client(JID(sys.argv[1]), sys.argv[2])
-c.connect()
-
-try:
-    c.loop(1)
-except KeyboardInterrupt:
-    c.disconnect()
+class GetIplayerThread ( threading.Thread):
+  def __init__ (self, pid):
+     self.pid = pid
+     threading.Thread.__init__ ( self )
+  def run ( self ):
+     print "getIplayer thread run called",self.pid
 
 
