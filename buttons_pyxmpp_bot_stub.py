@@ -4,32 +4,18 @@
 import sys
 import urllib
 import re
-import datetime
-import time
-import timeit
 import threading
-#import os
 import random
-import subprocess
-#import MySQLdb
 import json
-import locale
-import codecs
 import libxml2
 import BeautifulSoup
 
 from BeautifulSoup import BeautifulSoup
 
-from pyxmpp import streamtls
 from pyxmpp.all import JID,Iq,Presence,Message,StreamError
-from pyxmpp.jabber.client import JabberClient
 from pyxmpp.interface import implements
 from pyxmpp.interfaces import IMessageHandlersProvider,IIqHandlersProvider,IPresenceHandlersProvider
 from pyxmpp.iq import Iq
-
-
-# required to talk to mythtv
-import telnetlib
 
 
 class BasicBot(object):
@@ -45,12 +31,9 @@ class BasicBot(object):
     self.currentJID=None
     self.myFullJID=None
     self.mypass = None
-    try:
-       self.mypass = os.environ["MYTHMYSQLPASS"]
-    except(Exception):
-       print "No mysql password found (MYTHMYSQLPASS, copy it from /etc/myth/config.xml please!)"
 
 ######
+# Various interfaces so we can handle presence, iq and chat messages
 ######
 
   def get_presence_handlers(self):
@@ -68,6 +51,7 @@ class BasicBot(object):
     return [("normal", self.default)]
 
 ######
+# handle presence messages
 ######
 
   def presence(self,stanza):
@@ -91,6 +75,7 @@ class BasicBot(object):
       return p
 
 ######
+# Handle iq messages
 ######
 
   def iq(self,stanza):
@@ -120,8 +105,8 @@ class BasicBot(object):
 
 
 ######
+# Handle chat messages
 ######
-# These are responses to chat messages
 
   def default(self,stanza):
     sub=stanza.get_subject()
@@ -146,15 +131,12 @@ class BasicBot(object):
     if(len(arr)>1 and arr[1]):
        param = arr[1]
 
-# how do we get the full jid?
-# doesn't work    self.myFullJID=msg1.get_from()
-# ask the command
     body = self.process_command(cmd, param)
     msg=Message(to_jid=stanza.get_from(),from_jid=stanza.get_to(),stanza_type=stanza.get_type(),subject=sub,body=body)
     return msg
 
 #######
-# commands
+# Commands
 #######
 
   def process_command(self, cmd,param):
@@ -253,15 +235,19 @@ class BasicBot(object):
 
   def save(self,pid):
      body = None
-     if (re.match("^http",pid)):
-        pid =pid.replace("http://www.bbc.co.uk/programmes/","")
-     pid_match = re.match('.*?\/?([b-df-hj-np-tv-z][0-9b-df-hj-np-tv-z]{7,15}).*?',pid)
-     if pid_match:
-        print "saving using get_iplayer:",pid
-        GetIplayerThread(pid).start()
-        body = "Trying to download "+ pid
+     if pid:
+        if (re.match("^http",pid)):
+           pid =pid.replace("http://www.bbc.co.uk/programmes/","")
+        pid_match = re.match('.*?\/?([b-df-hj-np-tv-z][0-9b-df-hj-np-tv-z]{7,15}).*?',pid)
+        if pid_match:
+           pid = pid_match.group(1)
+           print "saving using get_iplayer:",pid
+           GetIplayerThread(pid).start()
+           body = "Trying to download "+ pid
+        else:
+          body = "No pid found"
      else:
-        body = "No pid found"
+          body = "No pid found"
      return body
 
 
@@ -281,7 +267,7 @@ class BasicBot(object):
     return results
 
 ####
-# send an event to the beancounter specified by this user
+# Send an event to the beancounter specified by this user
 ####
 
   def send_event(self, event, e_type):
@@ -306,19 +292,19 @@ class BasicBot(object):
 
 
 ####
-# pop up a qr code on request
+# Pop up a qr code on request
 ####
 
   def do_qr(self):
     pin = random.randint(1000, 9999)
     fn = "q"+str(pin)+".png"
-    jstring = self.myFullJID
+    jstring = str(self.myFullJID)
     print "bot ",jstring
-#need to add some stuff so that we can accept things with this pin
-    return "Popping up a QR code for",jstring,"plus pin is ",pin
+# Need to add some stuff so that we can accept things with this pin
+    return "Popping up a QR code for"+jstring+"#"+str(pin)
 
 ####
-# now playing as html
+# Now playing as html
 ###
 
   def html_nowp(self):
