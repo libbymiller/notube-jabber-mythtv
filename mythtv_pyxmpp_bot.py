@@ -1,108 +1,116 @@
-# See http://pyxmpp.jajcus.net/trac/browser/trunk/examples/echobot.py for a more detailed example
-# requires pyxmpp (on Ubuntu: sudo apt-get install python-pyxmpp)
-import sys
-import urllib
-import re
+#!/usr/bin/env python
+
 import datetime
-import time
-import timeit
-import threading
-import os
-import random
-import subprocess
 import MySQLdb
+import re
+import urllib
+import time
+import os
 
-
-from pyxmpp import streamtls
-from pyxmpp.all import JID,Iq,Presence,Message,StreamError
-from pyxmpp.jabber.client import JabberClient
-from pyxmpp.interface import implements
-from pyxmpp.interfaces import IMessageHandlersProvider
+from buttons_pyxmpp_bot_stub import BasicBot
 
 # required to talk to mythtv
 import telnetlib
 
-class BasicHandler(object):
-  implements(IMessageHandlersProvider)
+class MythBot(BasicBot):
     
   def __init__(self, client):
     self.client = client
-    
-  def get_message_handlers(self):
-    return [("normal", self.default)]
+    self.nowplaying = None
+    self.lastchanged=0
+    self.database={}
+    self.defaultpingback=None
+    self.defaultrecommender=None
+    self.currentJID=None
+    self.mypass = "196NYOxZ"
+    try:
+       self.mypass = os.environ["MYTHMYSQLPASS"]
+    except(Exception):
+       print "No mysql password found (MYTHMYSQLPASS, copy it from /etc/myth/config.xml please!)"
 
-  def default(self,stanza):
-    sub=stanza.get_subject()
-    b=stanza.get_body()
-    ty=stanza.get_type()
-    if sub:
-       sub=unicode(sub)
-    if b:
-       b = unicode(b)
-    print "Got msg.... "+unicode(b)
-    if stanza.get_type()=="headline":
-       # don't reply to these
-       return True
-    print "bb ",b
-    arr = b.split(" ")
-    cmd = arr[0]
-    cmd = cmd.lower() 
-    print "command ",cmd
-    if cmd == "go":
-       arr.pop(0)
-       bbb = " ".join(arr)
-       print "body ",bbb
-       body = self.send_command(bbb)
-    elif cmd == "p":
-       body = self.do_now_playing()
-    elif cmd == "b":
-       body = self.do_bookmark()
-    elif cmd == "qr":
-       body = self.do_qr()
-    elif cmd == "nowp":
-       body = self.html_nowp()
-    elif cmd == "plpz":
-       body = self.send_command("key P")
-    elif cmd == "ffwd":
-       body = self.send_command("key >")
-    elif cmd == "rewd":
-       body = self.send_command("key <")
-    elif cmd == "menu":
-       m = self.send_command("key M")
-       time.sleep(1)
-       body = self.send_command("key enter")
-    elif cmd == "plus":
-       body = self.send_command("key up")
-    elif cmd == "minu":
-       body = self.send_command("key down")
-    elif cmd == "righ":
-       body = self.send_command("key right")
-    elif cmd == "left":
-       body = self.send_command("key left")
-    elif cmd == "loud":
-       time.sleep(1)
-       body = self.send_command("key [")
-    elif cmd == "hush":
-       time.sleep(1)
-       body = self.send_command("key }")
-    elif cmd == "okay":
-        # if we are in the epg, send one set of commands, else send 'enter'
-        # first check where we are 
-        res = self.send_command("query location")
-        arr = res.split(",")
-        print "location str ",arr[2]
-        m = re.search('Playback', arr[2])
-        print " status: ",m
-        if(m):
-          self.send_command("key enter")
-        else:
-          self.send_command("key X")
-          time.sleep(2)
-          return self.send_command("key escape")
+  def plus(self):
+    body = self.send_command("key up")
+    print "plus called"
+    return body
+
+  def minu(self):
+    body = self.send_command("key down")
+    print "minu called" 
+    return body
+    
+  def righ(self):
+    body = self.send_command("key right")
+    print "righ called"
+    return body
+   
+  def left(self):
+    body = self.send_command("key left")
+    print "left called"
+    return body
+
+  def plpz(self):
+    body = self.send_command("key P")
+    print "plpz called"
+    return body
+
+  def ffwd(self):
+    body = self.send_command("key >")
+    print "ffwd called"
+    return body 
+
+  def rewd(self):
+    body = self.send_command("key <")
+    print "rewd called"
+    return body
+
+  def menu(self):
+    m = self.send_command("key M")
+    time.sleep(1)
+    body = self.send_command("key enter")
+    print "menu called"
+    return body
+   
+  def loud(self):
+    time.sleep(1)
+    body = self.send_command("key [")
+    print "loud called"
+    return body
+
+  def hush(self):
+    time.sleep(1)
+    body = self.send_command("key ]")
+    print "hush called"
+    return body
+
+  def info(self):
+    body = self.send_command("key i")
+    time.sleep(1)
+    body = self.send_command("key i")
+    print "hush called"
+    return body
+
+  def okay(self):
+    print "okay called"
+    # if we are in the epg, send one set of commands, else send 'enter'
+    # first check where we are 
+    res = self.send_command("query location")
+    arr = res.split(",")
+    print "location str ",arr[2]
+    m = re.search('Playback', arr[2])
+    print " status: ",m
+    if(m):
+       self.send_command("key enter")
+       body="Changing channel"
     else:
-       body = b
-    msg=Message(to_jid=stanza.get_from(),from_jid=stanza.get_to(),stanza_type=stanza.get_type(),subject=sub,body=body)
-    return msg
+       self.send_command("key X")
+       time.sleep(2)
+       body = self.send_command("key escape")
+       # we have probably changed channel
+       # update our now playing
+       time.sleep(1)
+       self.do_now_playing(False)
+       return body
+
 
 #####
 # Talking to the Mythtv telnet
@@ -131,7 +139,7 @@ class BasicHandler(object):
 # Get what is playing now
 ####
 
-  def do_now_playing(self):
+  def do_now_playing(self,send_event):
     output = self.send_command("query location")
     results= {}
     arr = output.rsplit(" ")
@@ -144,10 +152,10 @@ class BasicHandler(object):
       dtnfmt = dtnow.strftime("%Y-%m-%d %H:%M:%S")
       results["datetime"]=dt
 
-      # you need to add your myth password
-      db = MySQLdb.connect(host="localhost", user="mythtv", passwd="pass",db="mythconverg")
+      db = MySQLdb.connect(host="localhost", user="mythtv", passwd=self.mypass,db="mythconverg")
       cursor = db.cursor()
       cursor.execute("select title,starttime,callsign from program,channel where program.chanid=channel.chanid and starttime <= '"+dtnfmt+"' and endtime > '"+dtnfmt+"' and program.chanid='"+arr[9]+"' limit 1;")
+
       result = cursor.fetchall()
       record = result[0] 
       print "RECORD",str(record)
@@ -169,32 +177,76 @@ class BasicHandler(object):
            print "u",u
            data2 = urllib.urlopen(u).read()
            results["pid"]=data2
-           print data2,"..."
+           print data2,"...data2"
            progs = "http://www.bbc.co.uk/programmes/"
         else:
            data2=None
+        if (send_event):
+           print "should send event here"           
+           self.send_event(results, "Watching",None)
+        self.nowplaying=results
+        print "returning results"
     return results
+
+####
+# send an event to the beancounter specificed by this user
+####
+
+  def send_event(self, event, e_type,user):
+#    u = "http://dev.notu.be/2009/10/bbc/info?channel="+ch
+#    data2 = urllib.urlopen(u).read()
+    event["type"]=e_type
+    jid =self.currentJID
+    event["username"]=jid.node+"@"+jid.domain
+    print "sending event",e_type,str(event)
+    params = urllib.urlencode(event)
+    if self.defaultpingback:
+       f = urllib.urlopen(self.defaultpingback, params)
+       ff = f.read()
+       print ff
+    else:
+       print "no event sent - no defaultpingback set"
 
 ####
 # Send a bookmark to delicious - requires username and password
 ####
 
   def do_bookmark(self):
-    data2 = self.do_now_playing()
+    data2 = self.do_now_playing(False)
+    print "got data for boomarking"
     if (data2):
       # wait one sec
       time.sleep(1)
       # do delicious on it
       uu=None
       pw=None
+      uu="notube"
+      pw="kipper09"
       if(uu!="" and pw!=""):
         progs = "http://www.bbc.co.uk/programmes/"
+        progsnonbbc = "http://notube.tv/programmes/"
         delicious_url_1="https://"+uu+":"+pw+"@api.del.icio.us/v1/posts/add?url="
-        q=progs+""+data2["pid"]+"#"+data2["secs"]
-        delicious_url_2=urllib.quote_plus(q)+"&description="+urllib.quote_plus(data2["title"]+" ("+data2["secs"]+" seconds in)")+"&tags=tv&tags=mythtv&tags=notube"
+        if data2.has_key("pid"):
+           q=progs+""+data2["pid"]+"#"+str(data2["secs"])
+        else:
+           titl = data2["title"]
+           titl = titl.replace(" ","_")
+           q=progsnonbbc+"#{titl}#"+str(data2["secs"])
+        delicious_url_2=urllib.quote_plus(q)+"&description="+urllib.quote_plus(data2["title"]+" ("+str(data2["secs"])+" seconds in)")+"&tags=tv&tags=mythtv&tags=notube"
         delicious_url= delicious_url_1+delicious_url_2
         z = urllib.urlopen(delicious_url).read()
         res2= "bookmarked "+data2["title"]
+        event = self.nowplaying
+        if (self.nowplaying == None):
+          event = {}
+        jid = self.currentJID
+        user = jid.node+"@"+jid.domain
+        event["username"]=user
+        print "sending event","Bookmarked",str(event)
+        self.send_event( event, "Bookmarked", user)
+##send an alert to screen
+        st = 'mythtvosd --template=alert --alert_text="Bookmarked"'
+        os.system(st)
       else:
         res2 = "could not bookmark "+data2["title"]+" - no username / password"
       return res2
@@ -202,59 +254,4 @@ class BasicHandler(object):
       res2 = "no bookmark created - not playing anything at the moment"
       return res2
 
-
-####
-# pop up a qr code on request
-####
-
-  def do_qr(self):
-    i = random.randint(1000, 9999)
-    print "bot ",self.client.jid
-    fn = "q"+str(i)+".png"
-    jid = self.client.jid
-    jstring = jid.node+"@"+jid.domain
-    ar = ["qrencode", "-o", fn, "-s", "20", "xmpp:"+unicode(jstring)+"/q"+str(i)+"'"]
-    print ar
-    res = subprocess.Popen(ar)
-    cm = ["xli", "-display", ":0.0", "-fullscreen", fn]
-    time.sleep(1)
-    foo = subprocess.Popen(cm)
-    time.sleep(3)
-    foo.terminate() 
-    print foo
-
-####
-# now playing as html
-###
-
-  def html_nowp(self):
-    print "nowplaying requested"
-    z = self.do_now_playing()  
-    title = z["title"]
-    channel = z["channel"]
-    stt = z["datetime"]
-    channum = z["channum"]
-    s = "<div><h2>Now playing</h2><p>"+title+"</p><p>On channel: "+channel+"</p><p>Programme started at: "+stt+"</p><p>Local channel number is: "+channum+"</p></div>"
-    return s
-
-class Client(JabberClient):
-  def __init__(self, jid, password):
-    jid=JID(jid.node, jid.domain, "Basicbot")
-    tls = streamtls.TLSSettings(require=True, verify_peer=False)
-    auth = ['sasl:PLAIN']
-    JabberClient.__init__(self, jid, password, tls_settings=tls,auth_methods=auth)
-    self.interface_providers = [BasicHandler(self)]
-
-if len(sys.argv) < 3:
-    print "Usage: python basicbot_pyxmpp.py jid password"
-    sys.exit(1)
-jid = sys.argv[1]
-password = sys.argv[2]
-c=Client(JID(sys.argv[1]), sys.argv[2])
-c.connect()
-
-try:
-    c.loop(1)
-except KeyboardInterrupt:
-    c.disconnect()
 

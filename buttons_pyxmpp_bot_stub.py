@@ -314,8 +314,10 @@ class BasicBot(object):
     if z:
       title = z["title"]
       channel = z["channel"]
+      channum = None
       stt = z["datetime"]
-      channum = z["channum"]
+      if z.has_key("channum"):
+         channum = z["channum"]
       extras = ""
 # get the pid if it's a BBC programme
       if (re.match("bbc", channel)):
@@ -341,7 +343,10 @@ class BasicBot(object):
                      cat = x["value"]
                      extras=extras+ "Category: <a href='"+cat+"'>"+cat+"</a><br />"
 
-      s = "<div><meta name=\"viewport\" content=\"width=320\"/><h2>Now playing</h2><p>"+title+"</p><p>On channel: "+channel+"</p><p>Programme started at: "+stt+"</p><p>Local channel number is: "+channum+"</p>"+extras+"</div>"
+      s = "<div><meta name=\"viewport\" content=\"width=320\"/><h2>Now playing</h2><p>"+title+"</p><p>On channel: "+channel+"</p><p>Programme started at: "+stt+"</p>"
+      if (channum):
+         s = s+"<p>Local channel number is: "+channum+"</p>"
+      s = s+extras+"</div>"
 
       s = s.replace("&","&amp;")
 
