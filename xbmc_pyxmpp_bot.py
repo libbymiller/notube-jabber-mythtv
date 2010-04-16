@@ -18,7 +18,7 @@ class XBMCBot(BasicBot):
     self.defaultpingback=None
     self.defaultrecommender=None
     self.currentJID=None
-    self.mypass = "196NYOxZ"
+    self.mypass = ""
     try:
        self.mypass = os.environ["MYTHMYSQLPASS"]
     except(Exception):
@@ -226,8 +226,6 @@ class XBMCBot(BasicBot):
       # do delicious on it
       uu=None
       pw=None
-      uu="notube"
-      pw="kipper09"
       if(uu!="" and pw!=""):
         progs = "http://www.bbc.co.uk/programmes/"
         progsnonbbc = "http://notube.tv/programmes/"
