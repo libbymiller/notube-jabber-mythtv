@@ -171,8 +171,8 @@ class XBMCBot(BasicBot):
           secs = record[0]
           secsfmt = secs.strftime("%Y-%m-%d %H:%M:%S")
           results["datetime"]=secsfmt
-          results["secs"]=secs-dtnow
-          results["secs"]=results["secs"].seconds
+          diff_secs=dtnow-secs
+          results["secs"]=diff_secs.seconds
           ch = channel.lower()
           ch = channel.replace(" ","")
           results["channel"]=ch
@@ -236,7 +236,7 @@ class XBMCBot(BasicBot):
            titl = data2["title"]
            titl = titl.replace(" ","_")
            q=progsnonbbc+"#{titl}#"+str(data2["secs"])
-        delicious_url_2=urllib.quote_plus(q)+"&description="+urllib.quote_plus(data2["title"]+" ("+str(data2["secs"])+" seconds in)")+"&tags=tv&tags=xbmc&tags=notube"
+        delicious_url_2=urllib.quote_plus(q)+"&description="+urllib.quote_plus(data2["title"]+" ("+str(data2["secs"]/60)+" minutes in)")+"&tags=tv&tags=xbmc&tags=notube"
         delicious_url= delicious_url_1+delicious_url_2
         z = urllib.urlopen(delicious_url).read()
         res2= "bookmarked "+data2["title"]

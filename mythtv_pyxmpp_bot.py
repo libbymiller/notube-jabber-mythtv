@@ -5,6 +5,7 @@ import MySQLdb
 import re
 import urllib
 import time
+import datetime
 import os
 
 from buttons_pyxmpp_bot_stub import BasicBot
@@ -163,8 +164,16 @@ class MythBot(BasicBot):
       res2=""
       if (record!=""):
         secs = record[1]
-        results["secs"]=secs-dtnow
-        results["secs"]=results["secs"].seconds
+        diff_secs=dtnow-secs
+        print "SECS",secs,"dtnow",dtnow,"diff",diff_secs
+
+#d1str = "2010-04-16 17:15:00"
+#d2 = datetime.datetime.now()
+#print "comparing",d1.__class__,"and",d2.__class__
+#delta = d2 - d1
+#print "secs",delta.seconds,"mins",delta.seconds/60
+
+        results["secs"]=diff_secs.seconds
         ch = record[2]
         ch = ch.lower()
         ch = ch.replace(" ","")
@@ -213,7 +222,7 @@ class MythBot(BasicBot):
 
   def do_bookmark(self):
     data2 = self.do_now_playing(False)
-    print "got data for boomarking"
+    print "got data for bookmarking"
     if (data2):
       # wait one sec
       time.sleep(1)
@@ -230,7 +239,7 @@ class MythBot(BasicBot):
            titl = data2["title"]
            titl = titl.replace(" ","_")
            q=progsnonbbc+"#{titl}#"+str(data2["secs"])
-        delicious_url_2=urllib.quote_plus(q)+"&description="+urllib.quote_plus(data2["title"]+" ("+str(data2["secs"])+" seconds in)")+"&tags=tv&tags=mythtv&tags=notube"
+        delicious_url_2=urllib.quote_plus(q)+"&description="+urllib.quote_plus(data2["title"]+" ("+str(data2["secs"]/60)+" minutes in)")+"&tags=tv&tags=mythtv&tags=notube"
         delicious_url= delicious_url_1+delicious_url_2
         z = urllib.urlopen(delicious_url).read()
         res2= "bookmarked "+data2["title"]
