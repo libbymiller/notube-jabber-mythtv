@@ -42,7 +42,7 @@ class BasicBot(object):
 
   def get_iq_get_handlers(self):
     print "handlers requested for iq"
-    return [("iq","http://buttons.foaf.tv/",self.iq)]
+    return [("query","http://buttons.foaf.tv/",self.iq)]
 
   def get_iq_set_handlers(self):
     return [] #?
@@ -93,7 +93,9 @@ class BasicBot(object):
     body = ''
 # These commands are the ones that we want to use over IQ
     param=None
-    if(len(arr)>1 and arr[1]):
+    arr = cmd.split(" ")
+    if(arr and len(arr)>1 and arr[1]):
+       cmd = arr[0]
        param = arr[1]
     body = self.process_command(cmd,param)
     source = "<nowp-result xmlns='http://buttons.foaf.tv/'>" + body + "</nowp-result>"        

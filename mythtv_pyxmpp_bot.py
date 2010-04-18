@@ -23,7 +23,7 @@ class MythBot(BasicBot):
     self.defaultpingback=None
     self.defaultrecommender=None
     self.currentJID=None
-    self.mypass = ""
+    self.mypass = "196NYOxZ"
     try:
        self.mypass = os.environ["MYTHMYSQLPASS"]
     except(Exception):
@@ -229,6 +229,8 @@ class MythBot(BasicBot):
       # do delicious on it
       uu=None
       pw=None
+      uu="notube"
+      pw="bean09"
       if(uu!="" and pw!=""):
         progs = "http://www.bbc.co.uk/programmes/"
         progsnonbbc = "http://notube.tv/programmes/"
