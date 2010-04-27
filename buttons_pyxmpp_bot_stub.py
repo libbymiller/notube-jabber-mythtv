@@ -9,6 +9,7 @@ import random
 import json
 import libxml2
 import BeautifulSoup
+from threading import Timer
 
 from BeautifulSoup import BeautifulSoup
 
@@ -38,14 +39,15 @@ class BasicBot(object):
 
   def get_presence_handlers(self):
      print "Presence handlers called"
-     return [(None, self.presence)]
+     return [("available", self.presence), (None, self.presence)]
 
   def get_iq_get_handlers(self):
-    print "handlers requested for iq"
+    print "get handlers requested for iq"
     return [("query","http://buttons.foaf.tv/",self.iq)]
 
   def get_iq_set_handlers(self):
-    return [] #?
+    print "set handlers requested for iq"
+    return [("query","http://buttons.foaf.tv/",self.iq)]
 
   def get_message_handlers(self):
     return [("normal", self.default)]
@@ -180,6 +182,7 @@ class BasicBot(object):
     else:
        body = cmd
     print "returning body",body
+    print body.__class__
     return body
 
 #####
@@ -259,6 +262,10 @@ class BasicBot(object):
 ####
 
   def do_now_playing(self,send_event):
+    # start thread for polling for nowp every 5 minutes
+    print "XXXXXX starting timer"
+    t = Timer(600.0, self.nowp_rpt)
+    t.start()
 
     results = {'title': "BBC News At Six", 'pid': 'b00s1kpc', 'datetime': '2010-04-13T18:00:00', 'secs': 600, 'channum': '1001', 'channel': 'bbcone'}
 
@@ -266,7 +273,8 @@ class BasicBot(object):
        print "Should send watching event here"           
        self.send_event(results, "Watching")
     self.nowplaying=results
-    print "returning results"
+    self.client.stream.send( Presence( status="foo"+results["title"] ) )
+    print "returning results, sending ptresence"
     return results
 
 ####
@@ -357,6 +365,12 @@ class BasicBot(object):
       return s
     else:
       return "<div><meta name=\"viewport\" content=\"width=320\"/><p>Nothing playing at the moment - this sometimes means it's an ad break, or else MythTV frontend has crashed</p></div>"
+
+
+
+  def nowp_rpt():
+     print "nowp requested in 5 minutes"
+     self.do_now_playing(nil)
 
 
 ######
