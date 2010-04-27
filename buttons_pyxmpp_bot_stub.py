@@ -72,6 +72,7 @@ class BasicBot(object):
 # The full jid only appears in the presence requests.
 # These should always be requested before we get any messages
       self.myFullJID= stanza.get_to()
+      print "full jid is "+str(self.myFullJID)
       return p
 
 ######
