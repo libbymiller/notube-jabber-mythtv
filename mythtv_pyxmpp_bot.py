@@ -12,7 +12,6 @@ import subprocess
 from threading import Timer
 
 from buttons_pyxmpp_bot_stub import BasicBot
-from subs import Subs
 
 # required to talk to mythtv
 import telnetlib
