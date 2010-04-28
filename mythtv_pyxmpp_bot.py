@@ -226,9 +226,10 @@ class MythBot(BasicBot):
   def send_event(self, event, e_type,user):
 #    u = "http://dev.notu.be/2009/10/bbc/info?channel="+ch
 #    data2 = urllib.urlopen(u).read()
-    event["type"]=e_type
-    jid =self.currentJID
-    event["username"]=jid.node+"@"+jid.domain
+    # this keeps crashing and doesn;t actually send events yet so commemnting out
+    #event["type"]=e_type
+    #jid =self.currentJID
+    #event["username"]=jid.node+"@"+jid.domain
     print "sending event",e_type,str(event)
     params = urllib.urlencode(event)
     if self.defaultpingback:
@@ -268,7 +269,7 @@ class MythBot(BasicBot):
         else:
            titl = data2["title"]
            titl = titl.replace(" ","_")
-           q=progsnonbbc+"#{titl}#"+str(data2["secs"])
+           q=progsnonbbc+""+titl+"#"+str(data2["secs"])
         delicious_url_2=urllib.quote_plus(q)+"&description="+urllib.quote_plus(data2["title"]+" ("+str(data2["secs"]/60)+" minutes in)")+"&tags="+urllib.quote_plus("tv mythtv notube")
         delicious_url= delicious_url_1+delicious_url_2
         z = urllib.urlopen(delicious_url).read()
@@ -277,10 +278,12 @@ class MythBot(BasicBot):
         if (self.nowplaying == None):
           event = {}
         jid = self.currentJID
-        user = jid.node+"@"+jid.domain
-        event["username"]=user
+        # this keeps crashing and doesn;t actually send events yet so commemnting out
+        #user = jid.node+"@"+jid.domain
+        #event["username"]=user
         print "sending event","Bookmarked",str(event)
-        self.send_event( event, "Bookmarked", user)
+        #self.send_event( event, "Bookmarked", user)
+        self.send_event( event, "Bookmarked", None)
 ##send an alert to screen
         st = 'mythtvosd --template=alert --alert_text=\"'+res2+'\"'
 
