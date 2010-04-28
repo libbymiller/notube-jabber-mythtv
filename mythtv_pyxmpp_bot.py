@@ -26,6 +26,7 @@ class MythBot(BasicBot):
     self.defaultpingback=None
     self.defaultrecommender=None
     self.currentJID=None
+    self.myFullJID=None
     self.mypass = None
     try:
        self.mypass = os.environ["MYTHMYSQLPASS"]
@@ -34,67 +35,67 @@ class MythBot(BasicBot):
 
   def plus(self):
     body = self.send_command("key up")
-    print "plus called"
+    print "plus called ",self.myFullJID
     return body
 
   def minu(self):
     body = self.send_command("key down")
-    print "minu called" 
+    print "minu called",self.myFullJID
     return body
     
   def righ(self):
     body = self.send_command("key right")
-    print "righ called"
+    print "righ called",self.myFullJID
     return body
    
   def left(self):
     body = self.send_command("key left")
-    print "left called"
+    print "left called",self.myFullJID
     return body
 
   def plpz(self):
     body = self.send_command("key P")
-    print "plpz called"
+    print "plpz called",self.myFullJID
     return body
 
   def ffwd(self):
     body = self.send_command("key >")
-    print "ffwd called"
+    print "ffwd called",self.myFullJID
     return body 
 
   def rewd(self):
     body = self.send_command("key <")
-    print "rewd called"
+    print "rewd called",self.myFullJID
     return body
 
   def menu(self):
     m = self.send_command("key M")
     time.sleep(1)
     body = self.send_command("key enter")
-    print "menu called"
+    print "menu called",self.myFullJID
     return body
    
   def loud(self):
     time.sleep(1)
     body = self.send_command("key [")
-    print "loud called"
+    print "loud called",self.myFullJID
     return body
 
   def hush(self):
     time.sleep(1)
     body = self.send_command("key ]")
-    print "hush called"
+    print "hush called",self.myFullJID
     return body
 
   def info(self):
     body = self.send_command("key i")
     time.sleep(1)
     body = self.send_command("key i")
-    print "info called"
+    print "info called",self.myFullJID
     return body
 
   def okay(self):
-    print "okay called"
+    print "okay called",self.myFullJID
     # if we are in the epg, send one set of commands, else send 'enter'
     # first check where we are 
     res = self.send_command("query location")
@@ -130,10 +131,10 @@ class MythBot(BasicBot):
     print "sending command ",str(cmd)+"\r\n"
     tn.write(str(cmd)+"\r\n")
     res = tn.expect(['INVALID','OK'],3)
-#    for i in res:
-#      print "i is "+str(i)
+#   for i in res:
+#     print "i is "+str(i)
     output = str(res[2])
-    print output
+#   print output
     output = output.replace("MythFrontend Network Control","")
     output = output.replace("---------------------------------","")
     output = output.replace("Type 'help' for usage information","")
@@ -144,7 +145,7 @@ class MythBot(BasicBot):
     output = re.sub("^\s*","",output)
     tn.close()
     print "OUTPUT is "+output
-    print output.__class__
+    #print output.__class__
     return output
 
 ####
@@ -152,13 +153,13 @@ class MythBot(BasicBot):
 ####
 
   def do_now_playing(self,send_event):
-    print "XXXXXX starting timer"
+    print "XXXXXX starting timer",self.myFullJID
     #t = Timer(600.0, self.nowp_rpt)
     #t.start()
 
     output = self.send_command("query location")
-    print "OOOOOOO",output
-    print output.__class__
+    #print "OOOOOOO",output
+    #print output.__class__
     results= {}
     arr = output.rsplit(" ")
     print len(arr)," ",str(arr)
@@ -228,7 +229,7 @@ class MythBot(BasicBot):
 #    data2 = urllib.urlopen(u).read()
     # this keeps crashing and doesn;t actually send events yet so commemnting out
     #event["type"]=e_type
-    #jid =self.currentJID
+    #jid =self.myFullJID
     #event["username"]=jid.node+"@"+jid.domain
     print "sending event",e_type,str(event)
     params = urllib.urlencode(event)
@@ -245,7 +246,7 @@ class MythBot(BasicBot):
 
   def do_bookmark(self):
     data2 = self.do_now_playing(False)
-    print "got data for bookmarking"
+    print "got data for bookmarking",self.myFullJID
     if (data2):
       # wait one sec
       time.sleep(1)
@@ -260,7 +261,7 @@ class MythBot(BasicBot):
       if(uu!="" and pw!=""):
         print "bookmarking..."
         progs = "http://www.bbc.co.uk/programmes/"
-        progsnonbbc = "http://notube.tv/programmes/"
+        progsnonbbc = "http://purl.org/identifiers/epg/broadcast/"
         delicious_url_1="https://"+uu+":"+pw+"@api.del.icio.us/v1/posts/add?url="
         desc=""
         lup = ""
@@ -277,7 +278,7 @@ class MythBot(BasicBot):
         event = self.nowplaying
         if (self.nowplaying == None):
           event = {}
-        jid = self.currentJID
+        jid = self.myFullJID
         # this keeps crashing and doesn;t actually send events yet so commemnting out
         #user = jid.node+"@"+jid.domain
         #event["username"]=user
@@ -313,7 +314,7 @@ class MythBot(BasicBot):
     time.sleep(10)
     foo.terminate()
     print foo
-    return "Popping up a QR code for"+jstring+"#"+str(pin)
+    return "Popping up a QR code for"+jstring+"#"+str(pin)," ",self.myFullJID
 
   def nowp_rpt(self):
      print "nowp requested in 5 minutes"

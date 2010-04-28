@@ -85,7 +85,7 @@ class BasicBot(object):
     print "IQ requested"
     print "iq stanza",stanza.serialize(),"\n"
     b=stanza.get_query()
-    print "GOT an IQ",str(b.get_content())
+    print "GOT an IQ",str(b.get_content())," ",self.myFullJID
     ty=stanza.get_type()   
     rr= "no response"
     content = b.get_content()
@@ -105,7 +105,7 @@ class BasicBot(object):
     soup = BeautifulSoup(source)
     doc = libxml2.parseDoc(str(soup.contents[0]))
     resp.set_content(doc)
-    print "IQ response is ",resp
+    #print "IQ response is ",resp
     return resp
 
 
@@ -182,7 +182,7 @@ class BasicBot(object):
     else:
        body = cmd
     print "returning body",body
-    print body.__class__
+#    print body.__class__
     return body
 
 #####
@@ -191,40 +191,40 @@ class BasicBot(object):
 #####
 
   def plus(self):
-    return "plus called"
+    return "plus called",self.myFullJID
 
   def minu(self):
-    return "minu called"
+    return "minu called",self.myFullJID
 
   def righ(self):
-    return "righ called"
+    return "righ called",self.myFullJID
 
   def left(self):
-    return "left called"
+    return "left called",self.myFullJID
 
   def plpz(self):
-    return "plpz called"
+    return "plpz called",self.myFullJID
 
   def ffwd(self):
-    return "ffwd called"
+    return "ffwd called",self.myFullJID
 
   def rewd(self):
-    return "rewd called"
+    return "rewd called",self.myFullJID
 
   def menu(self):
-    return "menu called"
+    return "menu called",self.myFullJID
 
   def info(self):
-    return "info called"
+    return "info called",self.myFullJID
 
   def loud(self):
-    return "loud called"
+    return "loud called",self.myFullJID
 
   def hush(self):
-    return "hush called"
+    return "hush called",self.myFullJID
 
   def okay(self):
-    return "okay called"
+    return "okay called",self.myFullJID
 
 
 #####
@@ -264,6 +264,7 @@ class BasicBot(object):
   def do_now_playing(self,send_event):
     # start thread for polling for nowp every 5 minutes
     print "XXXXXX starting timer"
+    print "nowp called",self.myFullJID
     t = Timer(600.0, self.nowp_rpt)
     t.start()
 
@@ -283,7 +284,7 @@ class BasicBot(object):
 
   def send_event(self, event, e_type):
     event["type"]=e_type
-    jid =self.currentJID
+    jid =self.myFullJID
 #   event["username"]=jid.node+"@"+jid.domain #crashes sometimes
     print "sending event",e_type,str(event)
 
@@ -294,6 +295,7 @@ class BasicBot(object):
 
 
   def do_bookmark(self):
+    print "bookmark called",self.myFullJID
     data2 = self.do_now_playing(False)
     print "got data for bookmarking", data2
     res2= "bookmarked "+data2["title"]
@@ -312,14 +314,14 @@ class BasicBot(object):
     jstring = str(self.myFullJID)
     print "bot ",jstring
 # Need to add some stuff so that we can accept things with this pin
-    return "Popping up a QR code for"+jstring+"#"+str(pin)
+    return "Popping up a QR code for"+jstring+"#"+str(pin)," ",self.myFullJID
 
 ####
 # Now playing as html
 ###
 
   def html_nowp(self):
-    print "nowplaying requested"
+    print "nowplaying requested",self.myFullJID
     z = self.do_now_playing(False) 
     print "z ",z 
     if z:
@@ -369,7 +371,7 @@ class BasicBot(object):
 
 
   def nowp_rpt(self):
-     print "nowp requested in 5 minutes"
+     print "nowp requested in 5 minutes",self.myFullJID
      self.do_now_playing(None)
 
 
@@ -382,6 +384,6 @@ class GetIplayerThread ( threading.Thread):
      self.pid = pid
      threading.Thread.__init__ ( self )
   def run ( self ):
-     print "getIplayer thread run called",self.pid
+     print "getIplayer thread run called",self.pid," ",self.myFullJID
 
 
