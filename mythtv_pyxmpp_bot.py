@@ -7,14 +7,18 @@ import urllib
 import time
 import datetime
 import os
+import random
+import subprocess
+from threading import Timer
 
 from buttons_pyxmpp_bot_stub import BasicBot
+from subs import Subs
 
 # required to talk to mythtv
 import telnetlib
 
 class MythBot(BasicBot):
-    
+
   def __init__(self, client):
     self.client = client
     self.nowplaying = None
@@ -23,7 +27,7 @@ class MythBot(BasicBot):
     self.defaultpingback=None
     self.defaultrecommender=None
     self.currentJID=None
-    self.mypass = "196NYOxZ"
+    self.mypass = ""
     try:
        self.mypass = os.environ["MYTHMYSQLPASS"]
     except(Exception):
@@ -110,8 +114,8 @@ class MythBot(BasicBot):
        # update our now playing
        time.sleep(1)
        self.do_now_playing(False)
-       return body
-
+       print body.__class__
+       return "changing channel"
 
 #####
 # Talking to the Mythtv telnet
@@ -134,6 +138,8 @@ class MythBot(BasicBot):
     output = output.replace("\\r\\n","")
     output = output.replace("#","")
     tn.close()
+    print "OUTPUT is "+output
+    print output.__class__
     return output
 
 ####
@@ -141,6 +147,10 @@ class MythBot(BasicBot):
 ####
 
   def do_now_playing(self,send_event):
+    print "XXXXXX starting timer"
+    t = Timer(600.0, self.nowp_rpt)
+    t.start()
+
     output = self.send_command("query location")
     results= {}
     arr = output.rsplit(" ")
@@ -229,22 +239,24 @@ class MythBot(BasicBot):
       # do delicious on it
       uu=None
       pw=None
-      uu="notube"
-      pw="bean09"
       if(uu!="" and pw!=""):
+        print "bookmarking..."
         progs = "http://www.bbc.co.uk/programmes/"
         progsnonbbc = "http://notube.tv/programmes/"
         delicious_url_1="https://"+uu+":"+pw+"@api.del.icio.us/v1/posts/add?url="
+        desc=""
+        lup = ""
         if data2.has_key("pid"):
            q=progs+""+data2["pid"]+"#"+str(data2["secs"])
+## add tags and desc here if available (bbc only)
         else:
            titl = data2["title"]
            titl = titl.replace(" ","_")
            q=progsnonbbc+"#{titl}#"+str(data2["secs"])
-        delicious_url_2=urllib.quote_plus(q)+"&description="+urllib.quote_plus(data2["title"]+" ("+str(data2["secs"]/60)+" minutes in)")+"&tags=tv&tags=mythtv&tags=notube"
+        delicious_url_2=urllib.quote_plus(q)+"&description="+urllib.quote_plus(data2["title"]+" ("+str(data2["secs"]/60)+" minutes in)")+"&tags="+urllib.quote_plus("tv mythtv notube")
         delicious_url= delicious_url_1+delicious_url_2
         z = urllib.urlopen(delicious_url).read()
-        res2= "bookmarked "+data2["title"]
+        res2= "Bookmarked "+data2["title"]
         event = self.nowplaying
         if (self.nowplaying == None):
           event = {}
@@ -254,7 +266,9 @@ class MythBot(BasicBot):
         print "sending event","Bookmarked",str(event)
         self.send_event( event, "Bookmarked", user)
 ##send an alert to screen
-        st = 'mythtvosd --template=alert --alert_text="Bookmarked"'
+        st = 'mythtvosd --template=alert --alert_text=\"'+res2+'\"'
+
+#Bookmarked "+data2["title"]'
         os.system(st)
       else:
         res2 = "could not bookmark "+data2["title"]+" - no username / password"
@@ -263,4 +277,28 @@ class MythBot(BasicBot):
       res2 = "no bookmark created - not playing anything at the moment"
       return res2
 
+
+  def do_qr(self):
+    pin = random.randint(1000, 9999)
+    fn = "q"+str(pin)+".png"
+    jstring = str(self.myFullJID)
+    print "bot ",jstring
+# Need to add some stuff so that we can accept things with this pin
+    ar = ["qrencode", "-o", fn, "-s", "20", "xmpp:"+unicode(jstring)+"'"]
+#+"/q"+str(pin)+
+    print ar
+    res = subprocess.Popen(ar)
+    cm = ["xli", "-display", ":0.0", "-fullscreen", fn]
+    time.sleep(1)
+    foo = subprocess.Popen(cm)
+    time.sleep(10)
+    foo.terminate()
+    print foo
+    return "Popping up a QR code for"+jstring+"#"+str(pin)
+
+  def nowp_rpt(self):
+     print "nowp requested in 5 minutes"
+     self.do_now_playing(None)
+
+    
 

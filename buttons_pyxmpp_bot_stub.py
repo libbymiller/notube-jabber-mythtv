@@ -368,9 +368,9 @@ class BasicBot(object):
 
 
 
-  def nowp_rpt():
+  def nowp_rpt(self):
      print "nowp requested in 5 minutes"
-     self.do_now_playing(nil)
+     self.do_now_playing(None)
 
 
 ######
