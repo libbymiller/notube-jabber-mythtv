@@ -177,14 +177,17 @@ class MythBot(BasicBot):
       cursor.execute(q)
 
       result = cursor.fetchall()
-      record = result[0] 
-      print "RECORD",str(record)
+      if len(result)==0:
+        print "No result for sql query - did you run mythfilldb or check EIT?"
+      else:
+        record = result[0] 
+        print "RECORD",str(record)
 
-      res2=""
-      if (record!=""):
-        secs = record[1]
-        diff_secs=dtnow-secs
-        print "SECS",secs,"dtnow",dtnow,"diff",diff_secs
+        res2=""
+        if (record!=""):
+          secs = record[1]
+          diff_secs=dtnow-secs
+          print "SECS",secs,"dtnow",dtnow,"diff",diff_secs
 
 #d1str = "2010-04-16 17:15:00"
 #d2 = datetime.datetime.now()
@@ -192,28 +195,28 @@ class MythBot(BasicBot):
 #delta = d2 - d1
 #print "secs",delta.seconds,"mins",delta.seconds/60
 
-        results["secs"]=diff_secs.seconds
-        ch = record[2]
-        ch = ch.lower()
-        ch = ch.replace(" ","")
-        results["channel"]=ch
-        t = record[0]
-        results["title"]=t
+          results["secs"]=diff_secs.seconds
+          ch = record[2]
+          ch = ch.lower()
+          ch = ch.replace(" ","")
+          results["channel"]=ch
+          t = record[0]
+          results["title"]=t
 
-        if (re.match("bbc", ch)):
-           u = "http://dev.notu.be/2009/10/bbc/info?channel="+ch
-           print "u",u
-           data2 = urllib.urlopen(u).read()
-           results["pid"]=data2
-           print data2,"...data2"
-           progs = "http://www.bbc.co.uk/programmes/"
-        else:
-           data2=None
-        if (send_event):
-           print "should send event here"           
-           self.send_event(results, "Watching",None)
-        self.nowplaying=results
-        print "returning results"
+          if (re.match("bbc", ch)):
+             u = "http://dev.notu.be/2009/10/bbc/info?channel="+ch
+             print "u",u
+             data2 = urllib.urlopen(u).read()
+             results["pid"]=data2
+             print data2,"...data2"
+             progs = "http://www.bbc.co.uk/programmes/"
+          else:
+             data2=None
+          if (send_event):
+             print "should send event here"           
+             self.send_event(results, "Watching",None)
+          self.nowplaying=results
+          print "returning results"
     return results
 
 ####

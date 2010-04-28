@@ -39,7 +39,7 @@ class BasicBot(object):
 
   def get_presence_handlers(self):
      print "Presence handlers called"
-     return [("available", self.presence), (None, self.presence)]
+     return [(None, self.presence)]
 
   def get_iq_get_handlers(self):
     print "get handlers requested for iq"
