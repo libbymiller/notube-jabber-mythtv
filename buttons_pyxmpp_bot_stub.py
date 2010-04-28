@@ -274,7 +274,7 @@ class BasicBot(object):
        self.send_event(results, "Watching")
     self.nowplaying=results
     self.client.stream.send( Presence( status="foo"+results["title"] ) )
-    print "returning results, sending ptresence"
+    print "returning results, sending presence"
     return results
 
 ####
@@ -284,7 +284,7 @@ class BasicBot(object):
   def send_event(self, event, e_type):
     event["type"]=e_type
     jid =self.currentJID
-    event["username"]=jid.node+"@"+jid.domain
+#   event["username"]=jid.node+"@"+jid.domain #crashes sometimes
     print "sending event",e_type,str(event)
 
 

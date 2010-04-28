@@ -26,7 +26,7 @@ class MythBot(BasicBot):
     self.defaultpingback=None
     self.defaultrecommender=None
     self.currentJID=None
-    self.mypass = ""
+    self.mypass = None
     try:
        self.mypass = os.environ["MYTHMYSQLPASS"]
     except(Exception):
@@ -90,7 +90,7 @@ class MythBot(BasicBot):
     body = self.send_command("key i")
     time.sleep(1)
     body = self.send_command("key i")
-    print "hush called"
+    print "info called"
     return body
 
   def okay(self):
@@ -98,23 +98,24 @@ class MythBot(BasicBot):
     # if we are in the epg, send one set of commands, else send 'enter'
     # first check where we are 
     res = self.send_command("query location")
-    arr = res.split(",")
-    print "location str ",arr[2]
-    m = re.search('Playback', arr[2])
+#    arr = res.split(" ")
+    print "location str ",res
+    m = re.search('Playback', res)
     print " status: ",m
     if(m):
        self.send_command("key enter")
-       body="Changing channel"
+       body="Enter selected"
     else:
        self.send_command("key X")
        time.sleep(2)
-       body = self.send_command("key escape")
+       c = self.send_command("key escape")
        # we have probably changed channel
        # update our now playing
-       time.sleep(1)
-       self.do_now_playing(False)
-       print body.__class__
-       return "changing channel"
+#       time.sleep(1)
+#       self.do_now_playing(False)
+#       print body.__class__
+       body ="Changing channel"
+    return body
 
 #####
 # Talking to the Mythtv telnet
@@ -129,13 +130,18 @@ class MythBot(BasicBot):
     print "sending command ",str(cmd)+"\r\n"
     tn.write(str(cmd)+"\r\n")
     res = tn.expect(['INVALID','OK'],3)
-    output = str(res)
+#    for i in res:
+#      print "i is "+str(i)
+    output = str(res[2])
     print output
     output = output.replace("MythFrontend Network Control","")
     output = output.replace("---------------------------------","")
     output = output.replace("Type 'help' for usage information","")
     output = output.replace("\\r\\n","")
     output = output.replace("#","")
+    output = re.sub("\n","",output)
+    output = re.sub("\r","",output)
+    output = re.sub("^\s*","",output)
     tn.close()
     print "OUTPUT is "+output
     print output.__class__
@@ -147,24 +153,28 @@ class MythBot(BasicBot):
 
   def do_now_playing(self,send_event):
     print "XXXXXX starting timer"
-    t = Timer(600.0, self.nowp_rpt)
-    t.start()
+    #t = Timer(600.0, self.nowp_rpt)
+    #t.start()
 
     output = self.send_command("query location")
+    print "OOOOOOO",output
+    print output.__class__
     results= {}
     arr = output.rsplit(" ")
     print len(arr)," ",str(arr)
     if(len(arr)>10):                                          
-      channel = arr[9]
-      results["channum"]=arr[9]
-      dt = arr[10]
+      channel = arr[6]
+      results["channum"]=arr[6]
+      dt = arr[8]
       dtnow = datetime.datetime.now()
       dtnfmt = dtnow.strftime("%Y-%m-%d %H:%M:%S")
       results["datetime"]=dt
 
       db = MySQLdb.connect(host="localhost", user="mythtv", passwd=self.mypass,db="mythconverg")
       cursor = db.cursor()
-      cursor.execute("select title,starttime,callsign from program,channel where program.chanid=channel.chanid and starttime <= '"+dtnfmt+"' and endtime > '"+dtnfmt+"' and program.chanid='"+arr[9]+"' limit 1;")
+      q ="select title,starttime,callsign from program,channel where program.chanid=channel.chanid and starttime <= '"+dtnfmt+"' and endtime > '"+dtnfmt+"' and program.chanid='"+channel+"' limit 1;"
+      print q
+      cursor.execute(q)
 
       result = cursor.fetchall()
       record = result[0] 
@@ -238,6 +248,11 @@ class MythBot(BasicBot):
       # do delicious on it
       uu=None
       pw=None
+      uu="notube"
+      try:
+         pw = os.environ["NOTUBEDELICIOUSPASS"]
+      except(Exception):
+         print "No delicious password found; set it in NOTUBEDELICIOUSPASS"
       if(uu!="" and pw!=""):
         print "bookmarking..."
         progs = "http://www.bbc.co.uk/programmes/"
@@ -247,7 +262,6 @@ class MythBot(BasicBot):
         lup = ""
         if data2.has_key("pid"):
            q=progs+""+data2["pid"]+"#"+str(data2["secs"])
-## add tags and desc here if available (bbc only)
         else:
            titl = data2["title"]
            titl = titl.replace(" ","_")
