@@ -4,10 +4,12 @@
 import sys
 import urllib
 import re
+import time
 import threading
 import random
 import json
 import libxml2
+import datetime
 import BeautifulSoup
 from threading import Timer
 
@@ -25,13 +27,27 @@ class BasicBot(object):
   def __init__(self, client):
     self.client = client
     self.nowplaying = None
-    self.lastchanged=0
+
+    # this is the time in secs to wait between querying what's on
+    # we don't want to overload, say, mythtv
+    # not used in the stub bot
+    self.time_to_wait = 60
+    now = datetime.datetime.now()
+    difference1 = datetime.timedelta(seconds = self.time_to_wait+10)
+    self.lastchanged = datetime.datetime.now() - difference1
+
+    # how often in secs we send changes in presence
+    # should have some relationship with self.time_to_wait
+    # it launches a thread that updates presence ever n secs
+    self.time_to_update_presence = 60
+
     self.database={}
     self.defaultpingback=None
     self.defaultrecommender=None
     self.currentJID=None
     self.myFullJID=None
     self.mypass = None
+
 
 ######
 # Various interfaces so we can handle presence, iq and chat messages
@@ -57,25 +73,16 @@ class BasicBot(object):
 ######
 
   def presence(self,stanza):
-      print "Presence requested"
-      status=""
-      if (self.nowplaying==None):
-         self.nowplaying = self.do_now_playing(False)
-      if (self.nowplaying.has_key("title") and self.nowplaying.has_key("channel")):
-         status = "Now playing "+self.nowplaying["title"]+" on "+self.nowplaying["channel"]
-      p=Presence(
-          stanza_type=stanza.get_type(),
-          to_jid=stanza.get_from(),
-          from_jid=stanza.get_to(),
-          show=stanza.get_show(),
-          status=status
-          )
-      print "Presence is ",status
-# The full jid only appears in the presence requests.
-# These should always be requested before we get any messages
-      self.myFullJID= stanza.get_to()
-      print "full jid is "+str(self.myFullJID)
-      return p
+      print "Presence requested - starting the thread"
+
+# do full jid here - seems as good a place as any
+      if self.client and self.client.stream:
+        self.myFullJID = self.client.stream.me
+
+# start the presence thread
+#     self.update_presence(stanza)
+      #check we are up to date
+      self.update_presence()
 
 ######
 # Handle iq messages
@@ -261,22 +268,65 @@ class BasicBot(object):
 # Get what is playing now - faked!
 ####
 
-  def do_now_playing(self,send_event):
-    # start thread for polling for nowp every 5 minutes
-    print "XXXXXX starting timer"
+  def do_now_playing(self,send_event,force=False):
+    # force forces an update if there's any wait set normally
+    # not implemented here
     print "nowp called",self.myFullJID
-    t = Timer(600.0, self.nowp_rpt)
-    t.start()
 
     results = {'title': "BBC News At Six", 'pid': 'b00s1kpc', 'datetime': '2010-04-13T18:00:00', 'secs': 600, 'channum': '1001', 'channel': 'bbcone'}
-
     if (send_event):
        print "Should send watching event here"           
        self.send_event(results, "Watching")
+
     self.nowplaying=results
-    self.client.stream.send( Presence( status="foo"+results["title"] ) )
-    print "returning results, sending presence"
-    return results
+
+
+######
+# presence update methods
+######
+
+  def get_status(self):
+    if (self.nowplaying and self.nowplaying.has_key("title") and self.nowplaying.has_key("channel")):
+       status = "Now playing "+self.nowplaying["title"]+" on "+self.nowplaying["channel"]
+    else:
+       status = "Nothing playing at the moment"
+    dtnow = datetime.datetime.now()
+    dtnfmt = dtnow.strftime("%Y-%m-%d %H:%M:%S")
+    jid = "not known"
+    if self.client and self.client.stream:  
+      jid = self.client.stream.me
+    status = "p:"+str(dtnfmt)+"j:"+str(jid)+" "+status
+    return status
+
+
+  def update_presence(self):
+    print "update presence called"
+
+    self.do_now_playing(False)
+    time.sleep(2)
+    status = self.get_status()
+    self.client.stream.send( Presence( status=status ) )
+    print "sending presence",status
+    t = Timer(self.time_to_update_presence, self.update_presence)
+    t.start()
+
+
+######
+# cases where we just call this once
+# no timer starts
+######
+
+  def update_presence_once(self,stanza=None):
+
+    self.do_now_playing(False, True) #force it to update
+
+    status = self.get_status()
+    print "[1]sending presence",status
+    if self.client and self.client.stream:  
+      self.client.stream.send( Presence( status=status ) )
+    else:
+      print "not sending status because no client" 
+
 
 ####
 # Send an event to the beancounter specified by this user
@@ -296,7 +346,8 @@ class BasicBot(object):
 
   def do_bookmark(self):
     print "bookmark called",self.myFullJID
-    data2 = self.do_now_playing(False)
+    self.do_now_playing(False)
+    data2 = self.nowplaying
     print "got data for bookmarking", data2
     res2= "bookmarked "+data2["title"]
     self.send_event( data2, "Bookmarked")
@@ -322,7 +373,8 @@ class BasicBot(object):
 
   def html_nowp(self):
     print "nowplaying requested",self.myFullJID
-    z = self.do_now_playing(False) 
+    self.do_now_playing(False) 
+    z = self.nowplaying
     print "z ",z 
     if z:
       title = z["title"]
@@ -368,11 +420,6 @@ class BasicBot(object):
     else:
       return "<div><meta name=\"viewport\" content=\"width=320\"/><p>Nothing playing at the moment - this sometimes means it's an ad break, or else MythTV frontend has crashed</p></div>"
 
-
-
-  def nowp_rpt(self):
-     print "nowp requested in 5 minutes",self.myFullJID
-     self.do_now_playing(None)
 
 
 ######

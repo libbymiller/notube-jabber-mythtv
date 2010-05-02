@@ -12,6 +12,7 @@ import subprocess
 from threading import Timer
 
 from buttons_pyxmpp_bot_stub import BasicBot
+from pyxmpp.all import JID,Iq,Presence,Message,StreamError
 
 # required to talk to mythtv
 import telnetlib
@@ -21,7 +22,19 @@ class MythBot(BasicBot):
   def __init__(self, client):
     self.client = client
     self.nowplaying = None
-    self.lastchanged=0
+
+    # this is the time in secs to wait between querying what's on
+    # we don't want to overload, mythtv
+    self.time_to_wait = 60
+    now = datetime.datetime.now()
+    difference1 = datetime.timedelta(seconds = self.time_to_wait+10)
+    self.lastchanged = datetime.datetime.now() - difference1
+
+    # how often in secs we send changes in presence   
+    # should have some relationship with self.time_to_wait
+    # it launches a thread that updates presence ever n secs
+    self.time_to_update_presence = 60
+
     self.database={}
     self.defaultpingback=None
     self.defaultrecommender=None
@@ -32,6 +45,8 @@ class MythBot(BasicBot):
        self.mypass = os.environ["MYTHMYSQLPASS"]
     except(Exception):
        print "No mysql password found (MYTHMYSQLPASS, copy it from /etc/myth/config.xml please!)"
+
+
 
   def plus(self):
     body = self.send_command("key up")
@@ -112,9 +127,11 @@ class MythBot(BasicBot):
        c = self.send_command("key escape")
        # we have probably changed channel
        # update our now playing
-#       time.sleep(1)
-#       self.do_now_playing(False)
-#       print body.__class__
+       time.sleep(1)
+       self.do_now_playing(False,True)
+       # just once 
+       self.update_presence_once(None)
+#      print body.__class__
        body ="Changing channel"
     return body
 
@@ -152,43 +169,49 @@ class MythBot(BasicBot):
 # Get what is playing now
 ####
 
-  def do_now_playing(self,send_event):
-    print "XXXXXX starting timer",self.myFullJID
-    #t = Timer(600.0, self.nowp_rpt)
-    #t.start()
+  def do_now_playing(self,send_event,force=False):
 
-    output = self.send_command("query location")
-    #print "OOOOOOO",output
-    #print output.__class__
     results= {}
-    arr = output.rsplit(" ")
-    print len(arr)," ",str(arr)
-    if(len(arr)>10):                                          
-      channel = arr[6]
-      results["channum"]=arr[6]
-      dt = arr[8]
-      dtnow = datetime.datetime.now()
-      dtnfmt = dtnow.strftime("%Y-%m-%d %H:%M:%S")
-      results["datetime"]=dt
+    dtnow = datetime.datetime.now()
+    diff = dtnow - self.lastchanged
+    print "diff",diff.seconds
+  
+    # basically this can get called in quick succession and we don't
+    # want to get what we are watching if it's already happened recently
+    # perhaps this should be overideable
 
-      db = MySQLdb.connect(host="localhost", user="mythtv", passwd=self.mypass,db="mythconverg")
-      cursor = db.cursor()
-      q ="select title,starttime,callsign from program,channel where program.chanid=channel.chanid and starttime <= '"+dtnfmt+"' and endtime > '"+dtnfmt+"' and program.chanid='"+channel+"' limit 1;"
-      print q
-      cursor.execute(q)
+    if force or diff.seconds > self.time_to_wait-1: #secs
+      self.lastchanged = dtnow
 
-      result = cursor.fetchall()
-      if len(result)==0:
-        print "No result for sql query - did you run mythfilldb or check EIT?"
-      else:
-        record = result[0] 
-        print "RECORD",str(record)
+      output = self.send_command("query location")
+      #print output.__class__
+      arr = output.rsplit(" ")
+      print len(arr)," ",str(arr)
+      if(len(arr)>10):                                          
+        channel = arr[6]
+        results["channum"]=arr[6]
+        dt = arr[8]
+        dtnfmt = dtnow.strftime("%Y-%m-%d %H:%M:%S")
+        results["datetime"]=dt
 
-        res2=""
-        if (record!=""):
-          secs = record[1]
-          diff_secs=dtnow-secs
-          print "SECS",secs,"dtnow",dtnow,"diff",diff_secs
+        db = MySQLdb.connect(host="localhost", user="mythtv", passwd=self.mypass,db="mythconverg")
+        cursor = db.cursor()
+        q ="select title,starttime,callsign from program,channel where program.chanid=channel.chanid and starttime <= '"+dtnfmt+"' and endtime > '"+dtnfmt+"' and program.chanid='"+channel+"' limit 1;"
+        print q
+        cursor.execute(q)
+
+        result = cursor.fetchall()
+        if len(result)==0:
+          print "No result for sql query - did you run mythfilldb or check EIT?"
+        else:
+          record = result[0] 
+          print "RECORD",str(record)
+
+          res2=""
+          if (record!=""):
+            secs = record[1]
+            diff_secs=dtnow-secs
+            print "SECS",secs,"dtnow",dtnow,"diff",diff_secs
 
 #d1str = "2010-04-16 17:15:00"
 #d2 = datetime.datetime.now()
@@ -196,29 +219,46 @@ class MythBot(BasicBot):
 #delta = d2 - d1
 #print "secs",delta.seconds,"mins",delta.seconds/60
 
-          results["secs"]=diff_secs.seconds
-          ch = record[2]
-          ch = ch.lower()
-          ch = ch.replace(" ","")
-          results["channel"]=ch
-          t = record[0]
-          results["title"]=t
+            results["secs"]=diff_secs.seconds
+            ch = record[2]
+            ch = ch.lower()
+            ch = ch.replace(" ","")
+            results["channel"]=ch
+            t = record[0]
+            results["title"]=t
 
-          if (re.match("bbc", ch)):
-             u = "http://dev.notu.be/2009/10/bbc/info?channel="+ch
-             print "u",u
-             data2 = urllib.urlopen(u).read()
-             results["pid"]=data2
-             print data2,"...data2"
-             progs = "http://www.bbc.co.uk/programmes/"
-          else:
-             data2=None
-          if (send_event):
-             print "should send event here"           
-             self.send_event(results, "Watching",None)
-          self.nowplaying=results
-          print "returning results"
-    return results
+            if (re.match("bbc", ch)):
+               u = "http://dev.notu.be/2009/10/bbc/info?channel="+ch
+               print "u",u
+               data2 = urllib.urlopen(u).read()
+               results["pid"]=data2
+               print data2,"...data2"
+               progs = "http://www.bbc.co.uk/programmes/"
+            else:
+               data2=None
+            if (send_event):
+               print "should send event here"           
+               self.send_event(results, "Watching",None)
+          
+
+      self.nowplaying = results
+      print "returning results - updated"
+    else:
+      print "NOT UPDATING yet"
+
+
+####
+# override status msg
+####
+
+  def get_status(self):
+    if (self.nowplaying and self.nowplaying.has_key("title") and self.nowplaying.has_key("channel")):
+       status = "Now playing "+self.nowplaying["title"]+" on "+self.nowplaying["channel"]
+    else:
+       status = "Nothing playing at the moment"
+    return status
+
+
 
 ####
 # send an event to the beancounter specificed by this user
@@ -315,10 +355,6 @@ class MythBot(BasicBot):
     foo.terminate()
     print foo
     return "Popping up a QR code for"+jstring+"#"+str(pin)," ",self.myFullJID
-
-  def nowp_rpt(self):
-     print "nowp requested in 5 minutes"
-     self.do_now_playing(None)
 
     
 
